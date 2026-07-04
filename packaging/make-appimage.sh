@@ -10,6 +10,9 @@ set -euo pipefail
 VERSION="${VERSION:-${GITHUB_REF_NAME#v}}"
 [ -n "${VERSION:-}" ] || VERSION="0.0.0"
 
+# AppImage arch string (x86_64 or aarch64); must match the host architecture.
+APPIMAGE_ARCH="${APPIMAGE_ARCH:-x86_64}"
+
 APPDIR="$PWD/AppDir"
 rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin"
@@ -35,13 +38,13 @@ EOF
 chmod +x "$APPDIR/AppRun"
 
 curl -fsSL -o /tmp/appimagetool \
-  "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+  "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage"
 chmod +x /tmp/appimagetool
 
 mkdir -p dist
 # Extract-and-run avoids needing FUSE on CI runners.
 export APPIMAGE_EXTRACT_AND_RUN=1
-ARCH=x86_64 /tmp/appimagetool "$APPDIR" \
-  "dist/RKDevelopTool-GUI-${VERSION}-x86_64.AppImage"
+ARCH="$APPIMAGE_ARCH" /tmp/appimagetool "$APPDIR" \
+  "dist/RKDevelopTool-GUI-${VERSION}-${APPIMAGE_ARCH}.AppImage"
 
-echo "==> Built dist/RKDevelopTool-GUI-${VERSION}-x86_64.AppImage"
+echo "==> Built dist/RKDevelopTool-GUI-${VERSION}-${APPIMAGE_ARCH}.AppImage"

@@ -1,11 +1,8 @@
 name: Release
 
-# Build installable packages for macOS (per-arch DMG) and Linux (deb/rpm/AppImage)
-# with rkdeveloptool bundled, and attach them to a GitHub Release on tag push.
-#
-# The macOS Intel build runs on the scarce macos-13 runners, so it is kept
-# separate and non-blocking: the release is published from the arm64 + Linux
-# builds, and the Intel DMG is appended to the same release whenever it finishes.
+# Build installable packages for macOS (arm64 DMG) and Linux (deb/rpm/AppImage
+# for x86_64 and arm64) with rkdeveloptool bundled, and attach them to a GitHub
+# Release on tag push. Intel (x86_64) macOS is no longer built.
 on:
   push:
     # Matches both bare (5.0.0) and v-prefixed (v1.0.0) version tags.
@@ -60,8 +57,22 @@ jobs:
           path: dist/*.dmg
 
   linux:
-    name: Linux (deb / rpm / AppImage)
-    runs-on: ubuntu-22.04
+    name: Linux ${{ matrix.arch }} (deb / rpm / AppImage)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            pkg_arch: amd64
+            nfpm_arch: x86_64
+            appimage_arch: x86_64
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+            pkg_arch: arm64
+            nfpm_arch: arm64
+            appimage_arch: aarch64
     steps:
       - uses: actions/checkout@v4
 
@@ -93,10 +104,12 @@ jobs:
       - name: Install nfpm
         run: |
           curl -fsSL -o /tmp/nfpm.tar.gz \
-            https://github.com/goreleaser/nfpm/releases/download/v2.41.0/nfpm_2.41.0_Linux_x86_64.tar.gz
+            "https://github.com/goreleaser/nfpm/releases/download/v2.41.0/nfpm_2.41.0_Linux_${{ matrix.nfpm_arch }}.tar.gz"
           sudo tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin nfpm
 
       - name: Package deb + rpm
+        env:
+          PKG_ARCH: ${{ matrix.pkg_arch }}
         run: |
           export VERSION="${GITHUB_REF_NAME#v}"
           [ -n "$VERSION" ] || VERSION="0.0.0"
@@ -104,11 +117,13 @@ jobs:
           nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
 
       - name: Build AppImage
+        env:
+          APPIMAGE_ARCH: ${{ matrix.appimage_arch }}
         run: bash packaging/make-appimage.sh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux
+          name: linux-${{ matrix.arch }}
           path: |
             dist/*.deb
             dist/*.rpm
@@ -128,55 +143,3 @@ jobs:
         with:
           files: artifacts/**/*
           generate_release_notes: true
-
-  macos-intel:
-    name: macOS (Intel)
-    runs-on: macos-13
-    # Intel runners are scarce; never let this block or fail the release.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build tools
-        run: brew install automake autoconf libtool pkg-config create-dmg
-
-      - name: Build bundled rkdeveloptool
-        run: bash packaging/build-rkdeveloptool.sh "$PWD/dist/rkdeveloptool"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-
-      - name: Build app bundle (Nuitka)
-        run: python build_nuitka.py
-
-      - name: Bundle rkdeveloptool into the .app
-        run: |
-          SRC_APP="$(ls -d dist/*.app | head -1)"
-          APP="dist/RKDevelopTool-GUI.app"
-          [ "$SRC_APP" = "$APP" ] || mv "$SRC_APP" "$APP"
-          cp dist/rkdeveloptool "$APP/Contents/MacOS/rkdeveloptool"
-          chmod +x "$APP/Contents/MacOS/rkdeveloptool"
-
-      - name: Create DMG
-        run: |
-          DMG="dist/RKDevelopTool-GUI-x86_64.dmg"
-          create-dmg --volname "RKDevelopTool-GUI" --no-internet-enable \
-            "$DMG" "dist/RKDevelopTool-GUI.app" \
-          || hdiutil create -volname "RKDevelopTool-GUI" \
-               -srcfolder "dist/RKDevelopTool-GUI.app" -ov -format UDZO "$DMG"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-x86_64
-          path: dist/*.dmg
-
-      # Append the Intel DMG to the (already published) release for this tag.
-      - name: Attach Intel DMG to release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/RKDevelopTool-GUI-x86_64.dmg

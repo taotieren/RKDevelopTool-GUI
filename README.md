@@ -35,10 +35,9 @@ They **bundle `rkdeveloptool`**, so there is nothing else to install.
 | Platform | File |
 | --- | --- |
 | macOS (Apple Silicon) | `RKDevelopTool-GUI-arm64.dmg` |
-| macOS (Intel) | `RKDevelopTool-GUI-x86_64.dmg` |
-| Linux (portable) | `RKDevelopTool-GUI-*-x86_64.AppImage` |
-| Debian/Ubuntu | `rkdeveloptool-gui_*.deb` |
-| Fedora/openSUSE | `rkdeveloptool-gui-*.rpm` |
+| Linux (portable, x86_64 / arm64) | `RKDevelopTool-GUI-*-x86_64.AppImage` / `*-aarch64.AppImage` |
+| Debian/Ubuntu (amd64 / arm64) | `rkdeveloptool-gui_*.deb` |
+| Fedora/openSUSE (x86_64 / aarch64) | `rkdeveloptool-gui-*.rpm` |
 
 > **macOS note:** the app is not notarized yet, so on first launch macOS may say
 > it "cannot be opened". Right-click the app → **Open** → **Open**, or run

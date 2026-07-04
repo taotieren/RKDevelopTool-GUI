@@ -1,8 +1,10 @@
 # nfpm config that produces the .deb and .rpm packages.
-# Build with:  VERSION=1.0.0 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+# Build with:  VERSION=1.0.0 PKG_ARCH=amd64 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+# PKG_ARCH is a GOARCH-style value (amd64 or arm64); nfpm maps it to each
+# packager's convention (rpm: x86_64 / aarch64).
 # (rkdeveloptool is bundled and statically linked to libusb, so no runtime deps.)
 name: rkdeveloptool-gui
-arch: amd64
+arch: ${PKG_ARCH}
 platform: linux
 version: ${VERSION}
 maintainer: gahingwoo <huhuvmb88@outlook.com>
