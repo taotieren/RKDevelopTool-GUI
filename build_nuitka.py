@@ -96,6 +96,28 @@ def build_with_nuitka():
     # Create output directory
     os.makedirs("dist", exist_ok=True)
 
+    # The sources live in "rkdeveloptool-gui/" whose hyphen makes it an invalid
+    # Python package name, and every module imports its siblings relatively
+    # (``from .utils import ...``). Handing that module to Nuitka directly makes
+    # it the ``__main__`` module, where relative imports have no parent package
+    # and blow up at runtime ("attempted relative import with no known parent
+    # package"). Stage the sources under the valid package name and compile a
+    # thin launcher that imports the package absolutely; the intra-package
+    # relative imports then resolve normally.
+    stage_dir = os.path.join("build", "nuitka")
+    pkg_dir = os.path.join(stage_dir, "rkdeveloptool_gui")
+    if os.path.exists(stage_dir):
+        shutil.rmtree(stage_dir)
+    shutil.copytree("rkdeveloptool-gui", pkg_dir)
+    entry_script = os.path.join(stage_dir, "rkdevtoolgui.py")
+    with open(entry_script, "w", encoding="utf-8") as f:
+        f.write(
+            "import sys\n"
+            "from rkdeveloptool_gui.rkdevtoolgui import main\n\n"
+            'if __name__ == "__main__":\n'
+            "    sys.exit(main())\n"
+        )
+
     system = platform.system().lower()
     patched = False
     # Note: the app locates rkdeveloptool at runtime (see utils._find_rkdeveloptool),
@@ -130,12 +152,13 @@ def build_with_nuitka():
             ])
 
         # Bundle the package's runtime assets (fonts, etc.)
-        assets_dir = os.path.join("rkdeveloptool-gui", "assets")
+        assets_dir = os.path.join(pkg_dir, "assets")
         if os.path.isdir(assets_dir) and os.listdir(assets_dir):
-            cmd.append(f"--include-data-dir={assets_dir}=rkdeveloptool-gui/assets")
+            cmd.append(f"--include-data-dir={assets_dir}=rkdeveloptool_gui/assets")
 
-        # Add main script (pulls in the sibling modules via --follow-imports)
-        cmd.append(os.path.join("rkdeveloptool-gui", "rkdevtoolgui.py"))
+        # Compile the thin launcher; --follow-imports pulls in the staged
+        # rkdeveloptool_gui package with its relative imports intact.
+        cmd.append(entry_script)
 
         # Execute compilation
         print(f"Building RKDevelopTool-GUI ({platform.system()})...")
