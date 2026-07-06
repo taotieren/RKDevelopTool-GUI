@@ -331,14 +331,21 @@ class ThemeAutoManager:
             return self._get_macos_theme()
         elif self.platform.startswith("linux"):
             return self._get_linux_theme()
+        elif self.platform == "win32":
+            return self._get_windows_theme()
         else:
-            try:
-                import winreg
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-                value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-                return "light" if value == 1 else "dark"
-            except Exception:
-                return "light"
+            return "light"
+
+    def _get_windows_theme(self):
+        """Get current Windows system theme via registry"""
+        try:
+            winreg = __import__('winreg')
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                 r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+            value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+            return "light" if value == 1 else "dark"
+        except Exception:
+            return "light"
     
     def apply_system_theme(self):
         """Apply system theme to the application"""
